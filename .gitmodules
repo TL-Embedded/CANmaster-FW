@@ -1,0 +1,3 @@
+[submodule "STM32X"]
+	path = STM32X
+	url = https://github.com/Lambosaurus/STM32X.git

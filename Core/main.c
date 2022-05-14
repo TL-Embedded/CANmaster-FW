@@ -5,10 +5,14 @@
 #include "CAN.h"
 
 #include "Protocol.h"
+#include "Queue.h"
+
+static Queue_t gCanTxQueue;
+static CAN_Msg_t gCanTxBuffer[64];
 
 static void MAIN_TransmitCallback(const CAN_Msg_t * msg)
 {
-	CAN_Write(msg);
+	Queue_Push(&gCanTxQueue, msg);
 }
 
 static void MAIN_ConfigCallback(const Protocol_Config_t * config)
@@ -39,6 +43,8 @@ int main(void)
 	GPIO_EnableOutput(CAN_TERM_GPIO, CAN_TERM_PIN, false);
 	GPIO_EnableOutput(CAN_MODE_GPIO, CAN_MODE_PIN, false);
 
+	Queue_Init(&gCanTxQueue, gCanTxBuffer, sizeof(*gCanTxBuffer), LENGTH(gCanTxBuffer));
+
 	Protocol_Config_t defaultConfig = {
 		.bitrate = 250000,
 		.filter_id = 0,
@@ -63,6 +69,15 @@ int main(void)
 			uint8_t txbfr[PROTCOL_CAN_ENCODE_MAX];
 			uint32_t txlen = Protocol_EncodeCan(&rx, txbfr);
 			USB_CDC_Write(txbfr, txlen);
+		}
+
+		CAN_Msg_t tx;
+		if (   CAN_WriteFree() == CAN_MAILBOX_COUNT
+			&& Queue_Pop(&gCanTxQueue, &tx))
+		{
+			// We only write in the first mailbox - to preserve message order.
+
+			CAN_Write(&tx);
 		}
 
 		// Read incoming USB data

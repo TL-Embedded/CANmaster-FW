@@ -9,10 +9,15 @@
 
 static Queue_t gCanTxQueue;
 static CAN_Msg_t gCanTxBuffer[64];
+static Protocol_Status_t gStatus = {0};
+
 
 static void MAIN_TransmitCallback(const CAN_Msg_t * msg)
 {
-	Queue_Push(&gCanTxQueue, msg);
+	if (!Queue_Push(&gCanTxQueue, msg))
+	{
+		gStatus.tx_errors += 1;
+	}
 }
 
 static void MAIN_ConfigCallback(const Protocol_Config_t * config)
@@ -22,17 +27,18 @@ static void MAIN_ConfigCallback(const Protocol_Config_t * config)
 	GPIO_Write(CAN_TERM_GPIO, CAN_TERM_PIN, config->terminator);
 }
 
-static void MAIN_GetStatusCallback(void)
+static void MAIN_StatusCallback(Protocol_Status_t * status)
 {
-
+	*status = gStatus;
 }
 
 static const Protocol_Callback_t cProtocolCallbacks = {
-	.transmit = MAIN_TransmitCallback,
+	.tx_data = USB_CDC_Write,
+	.rx_data = USB_CDC_Read,
 	.configure = MAIN_ConfigCallback,
-	.get_status = MAIN_GetStatusCallback,
+	.get_status = MAIN_StatusCallback,
+	.tx_can = MAIN_TransmitCallback,
 };
-
 
 int main(void)
 {
@@ -57,18 +63,13 @@ int main(void)
 
 	USB_Init();
 
-	static uint8_t rxbfr[128];
-	static uint32_t rxhead = 0;
-
 	while(1)
 	{
 		// Read incoming can messages
 		CAN_Msg_t rx;
 		while (CAN_Read(&rx))
 		{
-			uint8_t txbfr[PROTCOL_CAN_ENCODE_MAX];
-			uint32_t txlen = Protocol_EncodeCan(&rx, txbfr);
-			USB_CDC_Write(txbfr, txlen);
+			Protocol_RecieveCan(&rx);
 		}
 
 		CAN_Msg_t tx;
@@ -76,41 +77,10 @@ int main(void)
 			&& Queue_Pop(&gCanTxQueue, &tx))
 		{
 			// We only write in the first mailbox - to preserve message order.
-
 			CAN_Write(&tx);
 		}
 
-		// Read incoming USB data
-		rxhead += USB_CDC_Read(rxbfr + rxhead, sizeof(rxbfr) - rxhead);
-		uint32_t rxtail = 0;
-
-		// Try to process messages consecutively from the buffer
-		while (rxtail < rxhead)
-		{
-			uint32_t processed = Protocol_Decode(rxbfr + rxtail, rxhead - rxtail);
-			if (processed == 0)
-			{
-				// Stop if the protocol stops consuming bytes
-				break;
-			}
-			rxtail += processed;
-		}
-
-		// Now deal with any remaining data.
-		int32_t remaining = rxhead - rxtail;
-		if (remaining > 0)
-		{
-			// Copy this back to the start of the buffer.
-			for (uint32_t i = 0; i < remaining; i++)
-			{
-				rxbfr[i] = rxbfr[i + rxtail];
-			}
-			rxhead = remaining;
-		}
-		else
-		{
-			rxhead = 0;
-		}
+		Protocol_Run();
 	}
 }
 

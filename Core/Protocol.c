@@ -5,7 +5,10 @@
  * PRIVATE DEFINITIONS
  */
 
-#define PROTOCOL_CAN_EXT	(1 << 5)
+#define PROTOCOL_CAN_EXT		(1 << 5)
+
+#define PROTOCOL_CAN_ENCODE_MAX		16
+#define PROTOCOL_STATUS_ENCODE_MAX	20
 
 /*
  * PRIVATE TYPES
@@ -17,12 +20,19 @@
 
 static uint8_t Protocol_Checksum(const uint8_t * data, uint32_t count);
 static uint32_t Protocol_GetBitrate(uint8_t code);
+static uint32_t Protocol_EncodeCan(const CAN_Msg_t * msg, uint8_t * bfr);
+static uint32_t Protocol_DecodeData(const uint8_t * data, uint32_t size);
 
 /*
  * PRIVATE VARIABLES
  */
 
 static Protocol_Callback_t gProtocolCallback;
+
+static struct {
+	uint32_t head;
+	uint8_t buffer[128];
+} gRx;
 
 /*
  * PUBLIC FUNCTIONS
@@ -31,9 +41,57 @@ static Protocol_Callback_t gProtocolCallback;
 void Protocol_Init(const Protocol_Callback_t * callback)
 {
 	gProtocolCallback = *callback;
+	gRx.head = 0;
 }
 
-uint32_t Protocol_EncodeCan(const CAN_Msg_t * msg, uint8_t * bfr)
+void Protocol_RecieveCan(const CAN_Msg_t * msg)
+{
+	uint8_t txbfr[PROTOCOL_CAN_ENCODE_MAX];
+	uint32_t txlen = Protocol_EncodeCan(msg, txbfr);
+	gProtocolCallback.tx_data(txbfr, txlen);
+}
+
+void Protocol_Run(void)
+{
+	// Read incoming USB data
+	gRx.head += gProtocolCallback.rx_data(gRx.buffer + gRx.head, sizeof(gRx.buffer) - gRx.head);
+	uint32_t rxtail = 0;
+
+	// Try to process messages consecutively from the buffer
+	while (rxtail < gRx.head)
+	{
+		uint32_t processed = Protocol_DecodeData(gRx.buffer + rxtail, gRx.head - rxtail);
+		if (processed == 0)
+		{
+			// Stop if the protocol stops consuming bytes
+			break;
+		}
+		rxtail += processed;
+	}
+
+	// Now deal with any remaining data.
+	int32_t remaining = gRx.head - rxtail;
+	if (remaining > 0)
+	{
+		// Copy this back to the start of the buffer.
+		for (uint32_t i = 0; i < remaining; i++)
+		{
+			gRx.buffer[i] = gRx.buffer[i + rxtail];
+		}
+		gRx.head = remaining;
+	}
+	else
+	{
+		gRx.head = 0;
+	}
+}
+
+/*
+ * PRIVATE FUNCTIONS
+ */
+
+
+static uint32_t Protocol_EncodeCan(const CAN_Msg_t * msg, uint8_t * bfr)
 {
 	uint8_t * head = bfr;
 
@@ -66,7 +124,27 @@ uint32_t Protocol_EncodeCan(const CAN_Msg_t * msg, uint8_t * bfr)
 	return head - bfr;
 }
 
-uint32_t Protocol_Decode(const uint8_t * data, uint32_t size)
+static uint32_t Protocol_EncodeStatus(const Protocol_Status_t * status, uint8_t * bfr)
+{
+	uint8_t * head = bfr;
+
+	*head++ = 0xAA;
+	*head++ = 0x55;
+	*head++ = 0x04;
+	*head++ = status->rx_errors;
+	*head++ = status->tx_errors;
+
+	for (uint32_t i = 0; i < 14; i++)
+	{
+		*head++ = 0;
+	}
+
+	*head++ = Protocol_Checksum(&bfr[2], 17);
+
+	return head - bfr;
+}
+
+static uint32_t Protocol_DecodeData(const uint8_t * data, uint32_t size)
 {
 	// This decoder runs optimally when the entire packet arrives at once
 	// For USB traffic this is a normal case.
@@ -119,6 +197,29 @@ uint32_t Protocol_Decode(const uint8_t * data, uint32_t size)
 				config.terminator = true;
 
 				gProtocolCallback.configure(&config);
+				gProtocolCallback.tx_data(data, packet_size);
+			}
+
+			return packet_size;
+		}
+		else if (data[2] == 0x04)
+		{
+			// Status request
+			uint32_t packet_size = 20;
+
+			if (size < packet_size)
+			{
+				// No bytes consumed. Wait for a full packet
+				return 0;
+			}
+
+			if (data[packet_size - 1] == Protocol_Checksum(&data[2], 17))
+			{
+				Protocol_Status_t status;
+				gProtocolCallback.get_status(&status);
+				uint8_t bfr[PROTOCOL_STATUS_ENCODE_MAX];
+				uint32_t len = Protocol_EncodeStatus(&status, bfr);
+				gProtocolCallback.tx_data(bfr, len);
 			}
 
 			return packet_size;
@@ -165,7 +266,7 @@ uint32_t Protocol_Decode(const uint8_t * data, uint32_t size)
 				memcpy(tx.data, &data[4], tx.len);
 			}
 
-			gProtocolCallback.transmit(&tx);
+			gProtocolCallback.tx_can(&tx);
 		}
 
 		return packet_size;
@@ -175,9 +276,6 @@ uint32_t Protocol_Decode(const uint8_t * data, uint32_t size)
 	return 2; // Discard the header.
 }
 
-/*
- * PRIVATE FUNCTIONS
- */
 
 static uint32_t Protocol_GetBitrate(uint8_t code)
 {

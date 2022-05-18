@@ -8,8 +8,6 @@
  * PUBLIC DEFINITIONS
  */
 
-#define PROTCOL_CAN_ENCODE_MAX	16
-
 /*
  * PUBLIC TYPES
  */
@@ -22,18 +20,28 @@ typedef struct {
 } Protocol_Config_t;
 
 typedef struct {
-	void (*transmit)(const CAN_Msg_t * msg);
+	uint8_t tx_errors;
+	uint8_t rx_errors;
+} Protocol_Status_t;
+
+typedef struct {
 	void (*configure)(const Protocol_Config_t * config);
-	void (*get_status)(void);
+	void (*get_status)(Protocol_Status_t * status);
+
+	void (*tx_can)(const CAN_Msg_t * msg);
+	void (*tx_data)(const uint8_t * data, uint32_t len);
+	uint32_t (*rx_data)(uint8_t * data, uint32_t max);
+
 } Protocol_Callback_t;
+
 
 /*
  * PUBLIC FUNCTIONS
  */
 
 void Protocol_Init(const Protocol_Callback_t * callback);
-uint32_t Protocol_EncodeCan(const CAN_Msg_t * msg, uint8_t * bfr);
-uint32_t Protocol_Decode(const uint8_t * data, uint32_t size);
+void Protocol_Run(void);
+void Protocol_RecieveCan(const CAN_Msg_t * msg);
 
 /*
  * EXTERN DECLARATIONS

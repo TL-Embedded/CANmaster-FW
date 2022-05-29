@@ -79,7 +79,7 @@ int main(void)
 		CAN_Msg_t rx;
 		while (CAN_Read(&rx))
 		{
-			Blinker_Blink(&gRxBlinker, 100);
+			Blinker_Blink(&gRxBlinker, 50);
 			Protocol_RecieveCan(&rx);
 		}
 
@@ -87,7 +87,7 @@ int main(void)
 		if (   CAN_WriteFree() == CAN_MAILBOX_COUNT
 			&& Queue_Pop(&gCanTxQueue, &tx))
 		{
-			Blinker_Blink(&gTxBlinker, 100);
+			Blinker_Blink(&gTxBlinker, 50);
 			// We only write in the first mailbox - to preserve message order.
 			CAN_Write(&tx);
 		}

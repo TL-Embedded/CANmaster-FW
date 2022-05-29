@@ -5,10 +5,10 @@ import threading
 
 def test_message(counter):
     data = [
-        0x00,
-        0x00,
-        0x00,
-        0x00,
+        0x11,
+        0x22,
+        0x33,
+        0x44,
         (counter >> 24) & 0xFF,
         (counter >> 16) & 0xFF,
         (counter >> 8) & 0xFF,
@@ -93,11 +93,11 @@ class RxBusThread(threading.Thread):
 def main():
 
     bitrate = 250000
-    test_time = 5.0
-    tx_rate = 1650
+    test_time = 10.0
+    tx_rate = 1750
 
-    busa = SeeedBus("COM7", bitrate=bitrate)
-    busb = SeeedBus("COM8", bitrate=bitrate)
+    busa = SeeedBus("COM8", bitrate=bitrate)
+    busb = SeeedBus("COM7", bitrate=bitrate)
 
     tx_thread = TxBusThread(busa, tx_rate)
     rx_thread = RxBusThread(busb)
@@ -112,9 +112,9 @@ def main():
     rx_thread.stop()
 
     print("Recieved: %d" % rx_thread.recieved)
-    print("Errors: %d" % rx_thread.errors)
     print("Sent: %d" % tx_thread.sent)
-    print("Message rate: %d" % (rx_thread.recieved / test_time))
+    print("Sequence Errors: %d" % rx_thread.errors)
+    print("Rate: %d /s" % (rx_thread.recieved / test_time))
 
 
 

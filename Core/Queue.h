@@ -12,10 +12,6 @@
  * PUBLIC TYPES
  */
 
-/*
- * PUBLIC FUNCTIONS
- */
-
 typedef struct {
 	void * items;
 	uint32_t item_size;
@@ -23,6 +19,10 @@ typedef struct {
 	uint32_t count;
 	uint32_t index;
 } Queue_t;
+
+/*
+ * PUBLIC FUNCTIONS
+ */
 
 
 void Queue_Init(Queue_t * queue, void * buffer, uint32_t item_size, uint32_t item_capacity);

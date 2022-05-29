@@ -168,10 +168,11 @@ static uint32_t Protocol_DecodeData(const uint8_t * data, uint32_t size)
 
 	if (data[1] == 0x55)
 	{
-		// full packet header
 		if (data[2] == 0x12)
 		{
-			// configuration packet.
+			//
+			//  PACKET TYPE: SEEED STUDIO CONFIG
+			//
 			uint32_t packet_size = 20;
 
 			if (size < packet_size)
@@ -197,14 +198,15 @@ static uint32_t Protocol_DecodeData(const uint8_t * data, uint32_t size)
 				config.terminator = true;
 
 				gProtocolCallback.configure(&config);
-				gProtocolCallback.tx_data(data, packet_size);
 			}
 
 			return packet_size;
 		}
 		else if (data[2] == 0x04)
 		{
-			// Status request
+			//
+			//  PACKET TYPE: SEEED STUDIO STATUS
+			//
 			uint32_t packet_size = 20;
 
 			if (size < packet_size)
@@ -224,10 +226,50 @@ static uint32_t Protocol_DecodeData(const uint8_t * data, uint32_t size)
 
 			return packet_size;
 		}
+		else if (data[2] == 0x13)
+		{
+			//
+			//  PACKET TYPE: COMPACT CONFIG
+			//
+			uint32_t packet_size = 16;
+			if (size < packet_size)
+			{
+				// No bytes consumed. Wait for a full packet
+				return 0;
+			}
+
+			if (data[packet_size - 1] == 0x55)
+			{
+				Protocol_Config_t config;
+
+				config.terminator = 	   data[3] == 0x01;
+
+				config.bitrate =		  (data[ 4] <<  0)
+										| (data[ 5] <<  8)
+										| (data[ 6] << 16)
+										| (data[ 7] << 24);
+
+				config.filter_id =		  (data[ 8] <<  0)
+										| (data[ 9] <<  8)
+										| (data[10] << 16)
+										| (data[11] << 24);
+
+				config.filter_mask = 	  (data[12] <<  0)
+										| (data[13] <<  8)
+										| (data[14] << 16)
+										| (data[15] << 24);
+
+				gProtocolCallback.configure(&config);
+			}
+
+			return packet_size;
+		}
 	}
 	else if ((data[1] & 0xC0) == 0xC0)
 	{
-		// can packet
+		//
+		//  PACKET TYPE: CAN MESSAGE
+		//
 		CAN_Msg_t tx;
 		tx.ext = data[1] & PROTOCOL_CAN_EXT;
 		tx.len = data[1] & 0x0F;

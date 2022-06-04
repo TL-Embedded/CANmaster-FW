@@ -135,7 +135,6 @@ class CANMaster:
 
         data = bytearray()
         data.append(0xAA)
-        data.append(0x55)
         data.append(0x13)
         data.append(0x01 if terminator else 0x00)
         data.extend(_u32_to_bytes(bitrate))

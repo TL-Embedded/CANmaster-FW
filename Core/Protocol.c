@@ -226,44 +226,44 @@ static uint32_t Protocol_DecodeData(const uint8_t * data, uint32_t size)
 
 			return packet_size;
 		}
-		else if (data[2] == 0x13)
+	}
+	else if (data[1] == 0x13)
+	{
+		//
+		//  PACKET TYPE: COMPACT CONFIG
+		//
+		uint32_t packet_size = 16;
+		if (size < packet_size)
 		{
-			//
-			//  PACKET TYPE: COMPACT CONFIG
-			//
-			uint32_t packet_size = 17;
-			if (size < packet_size)
-			{
-				// No bytes consumed. Wait for a full packet
-				return 0;
-			}
-
-			if (data[packet_size - 1] == 0x55)
-			{
-				Protocol_Config_t config;
-
-				config.terminator = 	   data[3] == 0x01;
-
-				config.bitrate =		  (data[ 4] <<  0)
-										| (data[ 5] <<  8)
-										| (data[ 6] << 16)
-										| (data[ 7] << 24);
-
-				config.filter_id =		  (data[ 8] <<  0)
-										| (data[ 9] <<  8)
-										| (data[10] << 16)
-										| (data[11] << 24);
-
-				config.filter_mask = 	  (data[12] <<  0)
-										| (data[13] <<  8)
-										| (data[14] << 16)
-										| (data[15] << 24);
-
-				gProtocolCallback.configure(&config);
-			}
-
-			return packet_size;
+			// No bytes consumed. Wait for a full packet
+			return 0;
 		}
+
+		if (data[packet_size - 1] == 0x55)
+		{
+			Protocol_Config_t config;
+
+			config.terminator = 	   data[2] == 0x01;
+
+			config.bitrate =		  (data[ 3] <<  0)
+									| (data[ 4] <<  8)
+									| (data[ 5] << 16)
+									| (data[ 6] << 24);
+
+			config.filter_id =		  (data[ 7] <<  0)
+									| (data[ 8] <<  8)
+									| (data[ 9] << 16)
+									| (data[10] << 24);
+
+			config.filter_mask = 	  (data[11] <<  0)
+									| (data[12] <<  8)
+									| (data[13] << 16)
+									| (data[14] << 24);
+
+			gProtocolCallback.configure(&config);
+		}
+
+		return packet_size;
 	}
 	else if ((data[1] & 0xC0) == 0xC0)
 	{

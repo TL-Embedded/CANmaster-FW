@@ -89,9 +89,10 @@ class RxBusThread(threading.Thread):
 
 
 def test_transmission(busa: canmaster.CANMaster, busb: canmaster.CANMaster, config: dict = {}) -> dict:
-    
+
+    # only enable terminator on one side - in case the other has failed.
     busa.configure(config['bitrate'], True)
-    busb.configure(config['bitrate'], True)
+    busb.configure(config['bitrate'], False)
 
     tx_thread = TxBusThread(busa, config['tx_rate'])
     rx_thread = RxBusThread(busb)

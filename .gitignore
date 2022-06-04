@@ -56,3 +56,4 @@ dkms.conf
 Debug/
 
 Tests/__pycache__/
+/Release/

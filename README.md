@@ -59,7 +59,7 @@ The transmit queue is 64 messages long. Exceeding this limit will cause messages
 | Byte         | Data                      |
 |--------------|---------------------------|
 |  0           | 0xAA                      |
-|  1, bit 7:4  |        0xD.               |
+|  1, bit 7:4  | 0xD                       |
 |  1, bit 0:3  | DLC. This must be 0 to 8  |
 |  2           | Arbitration ID  0:7       |
 |  3           | Arbitration ID  8:15      |

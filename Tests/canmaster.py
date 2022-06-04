@@ -1,4 +1,3 @@
-from email.message import Message
 import serial
 import can
 
@@ -49,20 +48,55 @@ class CANMaster:
         self.port.write(data)
     
     def recv(self, timeout: float = None):
+
+        # Check our current buffer for data
+        msg = self._get_next_message()
+        if msg is not None:
+            return msg
+        elif timeout is None or timeout > 0:
+            # See if we have any data waiting
+            self._await_data(timeout)
+            return self._get_next_message()
+        return None
+
+    def _await_data(self, timeout: float = None) -> bytearray:
+        # Wait for one or more bytes to be available
         self.port.timeout = timeout
-        self.buffer.extend(self.port.read())
-        while True:
+        data = bytearray()
+        data.extend(self.port.read(1))
+
+        if len(data):
+            # Read any other data that has shown up.
+            data.extend(self.port.read(self.port.inWaiting()))
+
+        self.buffer.extend(data)
+
+    def _get_next_message(self) -> can.Message | None:
+        while len(self.buffer):
             index, msg = self._read_message(self.buffer)
             if index == 0:
                 break
             self.buffer = self.buffer[index:]
             if msg is not None:
                 return msg
+        return None
+
+    def _read_data(self) -> bytearray:
+        ready = self.port.inWaiting()
+        if ready > 0:
+            return self.port.read(ready)
+        return bytearray()
+
+    def _find_header(self, buffer: bytearray) -> int:
+        for i in range(len(buffer)):
+            if buffer[i] == 0xAA:
+                return i
+        return 0
 
     def _read_message(self, buffer: bytearray) -> tuple[int, can.Message | None]:
         # check for a start byte
         if buffer[0] != 0xAA:
-            return 1, None
+            return self._find_header(buffer), None
 
         # is there enough data for a complete message?
         if len(buffer) < 5:
@@ -96,20 +130,21 @@ class CANMaster:
             data = buffer[4:4+dlc]
 
         return total_length, can.Message(arbitration_id=arbitration_id, data=data, is_extended_id=is_extended, dlc=dlc)
-             
-        
 
-    def configure(self, bitrate: int = 250000, terminator: bool = False, filter_id: int = 0x00000000, filter_mask: int = 0xFFFFFFFF):
+    def configure(self, bitrate: int = 250000, terminator: bool = False, filter_id: int = 0, filter_mask: int = 0) -> "CANMaster":
 
         data = bytearray()
         data.append(0xAA)
         data.append(0x55)
         data.append(0x13)
-        data.extend(_word_to_bytes(bitrate))
-        data.extend(_word_to_bytes(filter_id))
-        data.extend(_word_to_bytes(filter_mask))
+        data.append(0x01 if terminator else 0x00)
+        data.extend(_u32_to_bytes(bitrate))
+        data.extend(_u32_to_bytes(filter_id))
+        data.extend(_u32_to_bytes(filter_mask))
         data.append(0x55)
         self.port.write(data)
+
+        return self
 
 
 

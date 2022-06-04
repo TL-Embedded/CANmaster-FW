@@ -231,7 +231,7 @@ static uint32_t Protocol_DecodeData(const uint8_t * data, uint32_t size)
 			//
 			//  PACKET TYPE: COMPACT CONFIG
 			//
-			uint32_t packet_size = 16;
+			uint32_t packet_size = 17;
 			if (size < packet_size)
 			{
 				// No bytes consumed. Wait for a full packet

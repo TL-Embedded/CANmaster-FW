@@ -1,9 +1,10 @@
-from can.interfaces.seeedstudio import SeeedBus
+from psutil import boot_time
+import canmaster
 import can
 import time
 import threading
 
-def test_message(counter):
+def test_message(counter: int) -> can.Message:
     data = [
         0x11,
         0x22,
@@ -21,17 +22,13 @@ def test_message(counter):
         dlc=len(data)
         )
 
-def get_counter(msg):
-    return (msg.data[4] << 24) | (msg.data[5] << 16) | (msg.data[6] << 8) | msg.data[7]
 
-def compare_message(msg1, msg2):
-    if msg1 == None or msg2 == None:
-        return False
-    return msg1.arbitration_id == msg2.arbitration_id and msg1.data == msg2.data
+def get_counter(msg: can.Message) -> int:
+    return (msg.data[4] << 24) | (msg.data[5] << 16) | (msg.data[6] << 8) | msg.data[7]
 
 
 class TxBusThread(threading.Thread):
-    def __init__(self, bus, tx_rate):
+    def __init__(self, bus: canmaster.CANMaster, tx_rate: float):
         super().__init__()
         self.bus = bus
         self.running = True
@@ -62,8 +59,9 @@ class TxBusThread(threading.Thread):
     def stop(self):
         self.running = False
 
+
 class RxBusThread(threading.Thread):
-    def __init__(self, bus):
+    def __init__(self, bus: canmaster.CANMaster):
         super().__init__()
         self.bus = bus
         self.running = True
@@ -90,31 +88,96 @@ class RxBusThread(threading.Thread):
         self.running = False
 
 
-def main():
+def test_transmission(busa: canmaster.CANMaster, busb: canmaster.CANMaster, config: dict = {}) -> dict:
+    
+    busa.configure(config['bitrate'], True)
+    busb.configure(config['bitrate'], True)
 
-    bitrate = 250000
-    test_time = 10.0
-    tx_rate = 1750
-
-    busa = SeeedBus("COM8", bitrate=bitrate)
-    busb = SeeedBus("COM7", bitrate=bitrate)
-
-    tx_thread = TxBusThread(busa, tx_rate)
+    tx_thread = TxBusThread(busa, config['tx_rate'])
     rx_thread = RxBusThread(busb)
 
     tx_thread.start()
     rx_thread.start()
 
-    time.sleep(test_time)
+    time.sleep(config['test_time'])
 
     tx_thread.stop()
     time.sleep(0.1)
     rx_thread.stop()
 
-    print("Recieved: %d" % rx_thread.recieved)
-    print("Sent: %d" % tx_thread.sent)
-    print("Sequence Errors: %d" % rx_thread.errors)
-    print("Rate: %d /s" % (rx_thread.recieved / test_time))
+    stats = {
+        "recieved": rx_thread.recieved,
+        "sent": tx_thread.sent,
+        "errors": rx_thread.errors,
+        "rate": rx_thread.recieved / config['test_time']
+    }
+    return stats
+
+
+def print_stats(stats: dict):
+    print("Recieved: %d" % stats["recieved"])
+    print("Sent: %d" % stats["sent"])
+    print("Errors: %d" % stats["errors"])
+    print("Rate: %f" % stats["rate"])
+
+
+def list_canmasters() -> list[str]:
+    from serial.tools.list_ports import comports
+    ports = []
+    for port in comports():
+        if port.vid == 0x0483 and port.pid == 0x5740:
+            ports.append(port.name)
+    return ports
+
+def check_stats(config: dict, stats: dict) -> bool:
+    tolerance = 0.9
+
+    expected_messages = config["test_time"] * config["tx_rate"]
+
+    if stats["sent"] < expected_messages * tolerance:
+        return False
+    
+    if stats["recieved"] < expected_messages * tolerance:
+        return False
+
+    if stats["sent"] != stats["recieved"]:
+        return False
+
+    if stats["errors"] > 0:
+        return False
+
+    if stats["rate"] < config["tx_rate"] * tolerance:
+        return False
+
+    return True
+
+
+def main():
+    ports = list_canmasters()
+    if len(ports) != 2:
+        print("Error: Expected 2 CAN masters, found %d" % len(ports))
+        return
+
+    config = {
+        "bitrate": 250000,
+        "tx_rate": 1750,
+        "test_time": 5.0
+    }
+
+    busa = canmaster.CANMaster(ports[0])
+    busb = canmaster.CANMaster(ports[1])
+
+    print("Testing bus A -> bus B")
+    atob = test_transmission(busa, busb, config)
+    print_stats(atob)
+    print("Testing bus B -> bus A")
+    btoa = test_transmission(busb, busa, config)
+    print_stats(btoa)
+
+    if check_stats(config, atob) and check_stats(config, btoa):
+        print("Test passed")
+    else:
+        print("Test failed")
 
 
 

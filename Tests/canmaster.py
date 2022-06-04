@@ -81,12 +81,6 @@ class CANMaster:
                 return msg
         return None
 
-    def _read_data(self) -> bytearray:
-        ready = self.port.inWaiting()
-        if ready > 0:
-            return self.port.read(ready)
-        return bytearray()
-
     def _find_header(self, buffer: bytearray) -> int:
         for i in range(len(buffer)):
             if buffer[i] == 0xAA:

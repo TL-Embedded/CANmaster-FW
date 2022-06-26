@@ -4,6 +4,9 @@ import can
 import time
 import threading
 
+TEST_ID = 0x00020130
+TEST_EXT = True
+
 def test_message(counter: int) -> can.Message:
     data = [
         0x11,
@@ -16,14 +19,15 @@ def test_message(counter: int) -> can.Message:
         counter & 0xFF
     ]
     return can.Message(
-        arbitration_id=0x00102030,
+        arbitration_id=TEST_ID,
         data=data,
-        is_extended_id=True,
+        is_extended_id=TEST_EXT,
         dlc=len(data)
         )
 
-
 def get_counter(msg: can.Message) -> int:
+    if msg.arbitration_id != TEST_ID:
+        return 0
     return (msg.data[4] << 24) | (msg.data[5] << 16) | (msg.data[6] << 8) | msg.data[7]
 
 
@@ -75,7 +79,7 @@ class RxBusThread(threading.Thread):
             self.recv_next()
 
     def recv_next(self):
-        msg = self.bus.recv()
+        msg = self.bus.recv(0.1)
         if msg != None:
             self.recieved += 1
             counter = get_counter(msg)
@@ -83,6 +87,41 @@ class RxBusThread(threading.Thread):
                 print ("Error: %d -> %d" % (self.next_counter, counter))
                 self.errors += 1
             self.next_counter = counter + 1
+
+    def stop(self):
+        self.running = False
+
+
+class PingPongThread(threading.Thread):
+    def __init__(self, busa: canmaster.CANMaster, busb: canmaster.CANMaster):
+        super().__init__()
+        self.busa = busa
+        self.busb = busb
+        self.running = True
+        self.next_counter = 0
+
+        self.recieved = 0
+        self.errors = 0
+        self.sent = 0
+
+    def run(self):
+        while self.running:
+            self._send_recv(self.busa, self.busb, self.next_counter)
+            self.next_counter += 1
+            self._send_recv(self.busb, self.busa, self.next_counter)
+            self.next_counter += 1
+
+    def _send_recv(self, busa: canmaster.CANMaster, busb: canmaster.CANMaster, counter: int):
+        busa.send(test_message(counter))
+        self.sent += 1
+        msg = busb.recv(0.1)
+        if msg != None:
+            counter = get_counter(msg)
+            if counter != self.next_counter:
+                print ("Error: %d -> %d" % (self.next_counter, counter))
+                self.errors += 1
+            else:
+                self.recieved += 1
 
     def stop(self):
         self.running = False
@@ -113,6 +152,28 @@ def test_transmission(busa: canmaster.CANMaster, busb: canmaster.CANMaster, conf
         "rate": rx_thread.recieved / config['test_time']
     }
     return stats
+
+def test_pingpong_transmission(busa: canmaster.CANMaster, busb: canmaster.CANMaster, config: dict = {}) -> dict:
+    
+        # only enable terminator on one side - in case the other has failed.
+        busa.configure(config['bitrate'], True)
+        busb.configure(config['bitrate'], False)
+    
+        pp_thread = PingPongThread(busa, busb)
+    
+        pp_thread.start()
+    
+        time.sleep(config['test_time'])
+    
+        pp_thread.stop()
+    
+        stats = {
+            "recieved": pp_thread.recieved,
+            "sent": pp_thread.sent,
+            "errors": pp_thread.errors,
+            "rate": pp_thread.recieved / config['test_time']
+        }
+        return stats
 
 
 def print_stats(stats: dict):

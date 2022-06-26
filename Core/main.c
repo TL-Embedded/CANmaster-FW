@@ -45,12 +45,13 @@ static const Protocol_Callback_t cProtocolCallbacks = {
 	.tx_can = MAIN_TransmitCallback,
 };
 
-static Protocol_Config_t gProtocolConfig = {
+static Protocol_Config_t gDefaultConfig = {
 	.bitrate = 250000,
 	.filter_id = 0,
 	.filter_mask = 0,
 	.terminator = false,
 };
+
 
 /*
  * PUBLIC FUNCTIONS
@@ -63,33 +64,37 @@ int main(void)
 	Blinker_Init(&gTxBlinker, LED_TX_GPIO, LED_TX_PIN);
 	Blinker_Init(&gRxBlinker, LED_RX_GPIO, LED_RX_PIN);
 
-	Blinker_Blink(&gTxBlinker, 500);
-	Blinker_Blink(&gRxBlinker, 500);
-
 	GPIO_EnableOutput(CAN_TERM_GPIO, CAN_TERM_PIN, false);
 	GPIO_EnableOutput(CAN_MODE_GPIO, CAN_MODE_PIN, false);
 
+	// Version detection.
 	GPIO_EnableInput(VERSION_GPIO, VERSION_PIN, GPIO_Pull_Up);
 	bool has_max3301 = !GPIO_Read(VERSION_GPIO, VERSION_PIN);
 
+	// Init parts & modules.
 	if (has_max3301)
 	{
 		MAX3301_Init();
 	}
 
 	Queue_Init(&gCanTxQueue, gCanTxBuffer, sizeof(*gCanTxBuffer), LENGTH(gCanTxBuffer));
-	MAIN_InitCAN(&gProtocolConfig);
+	MAIN_InitCAN(&gDefaultConfig);
 	Protocol_Init(&cProtocolCallbacks);
-
 	USB_Init();
+
+	// Trigger our startup blink.
+	Blinker_Blink(&gTxBlinker, 500);
+	Blinker_Blink(&gRxBlinker, 500);
 
 	while(1)
 	{
+		// Check for the fault signal from applicable transcievers.
 		if (has_max3301 && MAX3301_IsFaultSet())
 		{
+			// MAX3301 signals through the RX & TX lines
 			CAN_Deinit();
 			MAX3301_ClearFault();
-			MAIN_InitCAN(&gProtocolConfig);
+			MAIN_InitCAN(&gDefaultConfig);
 		}
 
 		// Read incoming can messages
@@ -100,12 +105,13 @@ int main(void)
 			Protocol_RecieveCan(&rx);
 		}
 
+		// Write outgoing can messages
 		CAN_Msg_t tx;
 		if (   CAN_WriteFree() == CAN_MAILBOX_COUNT
 			&& Queue_Pop(&gCanTxQueue, &tx))
 		{
-			Blinker_Blink(&gTxBlinker, 50);
 			// We only write in the first mailbox - to preserve message order.
+			Blinker_Blink(&gTxBlinker, 50);
 			CAN_Write(&tx);
 		}
 
@@ -129,7 +135,8 @@ static void MAIN_TransmitCallback(const CAN_Msg_t * msg)
 
 static void MAIN_ConfigCallback(const Protocol_Config_t * config)
 {
-	gProtocolConfig = *config;
+	// Save the config in case we need to re-init
+	gDefaultConfig = *config;
 	MAIN_InitCAN(config);
 }
 

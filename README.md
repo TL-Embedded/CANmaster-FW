@@ -1,6 +1,6 @@
 # CANmaster FW
 
-This is the firmware for the CANmaster v1.2 hardware.
+This is the firmware for the [CANmaster v1.2 hardware](https://github.com/TL-Embedded/CANmaster-HW).
 
 The CANmaster is a USB to CAN adaptor.
 

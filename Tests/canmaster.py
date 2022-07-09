@@ -1,7 +1,18 @@
+from enum import Enum
 import serial
 import can
+import typing
 
 CAN_EXT_BIT = 1 << 5
+
+
+class CANMasterError(Enum):
+    UNKNOWN = 0x00
+    BUS_OVERCURRENT = 0x01
+    BUS_OVERVOLTAGE = 0x02
+    BUS_TRANSMIT_FAILURE = 0x03
+    TRANSMIT_BUFFER_FULL = 0x04
+
 
 def _u32_to_bytes(word: int) -> bytearray:
     return [
@@ -28,6 +39,7 @@ class CANMaster:
     def __init__(self, port: str ):
         self.port = serial.Serial(port, timeout=0.1)
         self.buffer = bytearray()
+        self.error_callback = None
 
     def send(self, msg: can.Message):
 
@@ -58,6 +70,14 @@ class CANMaster:
             self._await_data(timeout)
             return self._get_next_message()
         return None
+
+    def on_error(self, callback: typing.Callable[[CANMasterError], None] ):
+        # register a callback for the error condition
+        self.error_callback = callback
+
+    def _handle_error(self, code: int):
+        if self.error_callback is not None:
+            self.error_callback(CANMasterError(code))
 
     def _await_data(self, timeout: float = None) -> bytearray:
         # Wait for one or more bytes to be available
@@ -93,15 +113,29 @@ class CANMaster:
             return self._find_header(buffer), None
 
         # is there enough data for a complete message?
-        if len(buffer) < 5:
+        if len(buffer) < 4:
             # come back later
             return 0, None
 
         header = buffer[1]
-        # check for a header
-        if header & 0xC0 != 0xC0:
+
+        # select the decoder based on the header.
+        if (header & 0xC0) == 0xC0:
+            # Can message?
+            return self._read_can_message(buffer, header)
+
+        elif header == 0x15:
+            # Error message?
+            n, error_code = self._read_error_message(buffer)
+            if error_code is not None:
+                self._handle_error(error_code)
+            return n, None
+
+        else:
+            # Unknown. Discard it.
             return 2, None
 
+    def _read_can_message(self, buffer: bytearray, header: int) -> tuple[int, can.Message | None]:
         dlc = header & 0x0F
         is_extended = (header & CAN_EXT_BIT) != 0
 
@@ -125,12 +159,35 @@ class CANMaster:
 
         return total_length, can.Message(arbitration_id=arbitration_id, data=data, is_extended_id=is_extended, dlc=dlc)
 
-    def configure(self, bitrate: int = 250000, terminator: bool = False, filter_id: int = 0, filter_mask: int = 0) -> "CANMaster":
+    def _read_error_message(self, buffer: bytearray) -> tuple[int, str | None]:
 
+        # check for a complete message.
+        if len(buffer) < 4:
+            return 0, None
+
+        # read the error code
+        error_code = buffer[2]
+
+        # check for the stop char
+        if buffer[3] != 0x55:
+            return 4, None
+
+        return 4, error_code
+
+    def configure(self, bitrate: int = 250000, terminator: bool = False, silent: bool = False, error_code: bool = False, filter_id: int = 0, filter_mask: int = 0) -> "CANMaster":
+
+        flags = 0x00
+        if terminator:
+            flags |= 0x01
+        if silent:
+            flags |= 0x02
+        if error_code:
+            flags |= 0x04
+        
         data = bytearray()
         data.append(0xAA)
         data.append(0x13)
-        data.append(0x01 if terminator else 0x00)
+        data.append(flags)
         data.extend(_u32_to_bytes(bitrate))
         data.extend(_u32_to_bytes(filter_id))
         data.extend(_u32_to_bytes(filter_mask))

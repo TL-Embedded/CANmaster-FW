@@ -130,8 +130,8 @@ class PingPongThread(threading.Thread):
 def test_transmission(busa: canmaster.CANMaster, busb: canmaster.CANMaster, config: dict = {}) -> dict:
 
     # only enable terminator on one side - in case the other has failed.
-    busa.configure(config['bitrate'], True)
-    busb.configure(config['bitrate'], False)
+    busa.configure(config['bitrate'], terminator=True, error_code=True)
+    busb.configure(config['bitrate'], terminator=False, error_code=True)
 
     tx_thread = TxBusThread(busa, config['tx_rate'])
     rx_thread = RxBusThread(busb)
@@ -156,8 +156,8 @@ def test_transmission(busa: canmaster.CANMaster, busb: canmaster.CANMaster, conf
 def test_pingpong_transmission(busa: canmaster.CANMaster, busb: canmaster.CANMaster, config: dict = {}) -> dict:
     
         # only enable terminator on one side - in case the other has failed.
-        busa.configure(config['bitrate'], True)
-        busb.configure(config['bitrate'], False)
+        busa.configure(config['bitrate'], terminator=True, error_code=True)
+        busb.configure(config['bitrate'], terminator=False, error_code=True)
     
         pp_thread = PingPongThread(busa, busb)
     
@@ -228,6 +228,8 @@ def main():
 
     busa = canmaster.CANMaster(ports[0])
     busb = canmaster.CANMaster(ports[1])
+    busa.on_error(lambda msg: print("BUS A: %s" % msg))
+    busb.on_error(lambda msg: print("BUS B: %s" % msg))
 
     print("Testing bus A -> bus B")
     atob = test_transmission(busa, busb, config)
@@ -235,6 +237,9 @@ def main():
     print("Testing bus B -> bus A")
     btoa = test_transmission(busb, busa, config)
     print_stats(btoa)
+    print("Testing ping pong")
+    pp = test_pingpong_transmission(busa, busb, config)
+    print_stats(pp)
 
     if check_stats(config, atob) and check_stats(config, btoa):
         print("Test passed")

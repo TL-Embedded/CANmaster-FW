@@ -9,6 +9,7 @@
 
 #define PROTOCOL_CAN_ENCODE_MAX		16
 #define PROTOCOL_STATUS_ENCODE_MAX	20
+#define PROTOCOL_ERROR_ENCODE_MAX	4
 
 /*
  * PRIVATE TYPES
@@ -22,6 +23,8 @@ static uint8_t Protocol_Checksum(const uint8_t * data, uint32_t count);
 static uint32_t Protocol_GetBitrate(uint8_t code);
 static uint32_t Protocol_EncodeCan(const CAN_Msg_t * msg, uint8_t * bfr);
 static uint32_t Protocol_DecodeData(const uint8_t * data, uint32_t size);
+static uint32_t Protocol_EncodeError(Protocol_Error_t error, uint8_t * bfr);
+static void Protocol_ApplyConfig(Protocol_Config_t * config);
 
 /*
  * PRIVATE VARIABLES
@@ -33,6 +36,8 @@ static struct {
 	uint32_t head;
 	uint8_t buffer[128];
 } gRx;
+
+static bool gProtocol_EnableErrors = false;
 
 /*
  * PUBLIC FUNCTIONS
@@ -49,6 +54,16 @@ void Protocol_RecieveCan(const CAN_Msg_t * msg)
 	uint8_t txbfr[PROTOCOL_CAN_ENCODE_MAX];
 	uint32_t txlen = Protocol_EncodeCan(msg, txbfr);
 	gProtocolCallback.tx_data(txbfr, txlen);
+}
+
+void Protocol_RecieveError(Protocol_Error_t error)
+{
+	if (gProtocol_EnableErrors)
+	{
+		uint8_t txbfr[PROTOCOL_ERROR_ENCODE_MAX];
+		uint32_t txlen = Protocol_EncodeError(error, txbfr);
+		gProtocolCallback.tx_data(txbfr, txlen);
+	}
 }
 
 void Protocol_Run(void)
@@ -90,6 +105,22 @@ void Protocol_Run(void)
  * PRIVATE FUNCTIONS
  */
 
+void Protocol_ApplyConfig(Protocol_Config_t * config)
+{
+	gProtocol_EnableErrors = config->enable_errors;
+}
+
+static uint32_t Protocol_EncodeError(Protocol_Error_t error, uint8_t * bfr)
+{
+	uint8_t * head = bfr;
+
+	*head++ = 0xAA;
+	*head++ = 0x15;
+	*head++ = (uint8_t)error;
+	*head++ = 0x55;
+
+	return head - bfr;
+}
 
 static uint32_t Protocol_EncodeCan(const CAN_Msg_t * msg, uint8_t * bfr)
 {
@@ -196,7 +227,10 @@ static uint32_t Protocol_DecodeData(const uint8_t * data, uint32_t size)
 									    | (data[11] << 16)
 									    | (data[12] << 24);
 				config.terminator = true;
+				config.enable_errors = false;
+				config.silent_mode = false;
 
+				Protocol_ApplyConfig(&config);
 				gProtocolCallback.configure(&config);
 			}
 
@@ -243,7 +277,10 @@ static uint32_t Protocol_DecodeData(const uint8_t * data, uint32_t size)
 		{
 			Protocol_Config_t config;
 
-			config.terminator = 	   data[2] == 0x01;
+			uint8_t flags = 		data[2];
+			config.terminator = 	flags & 0x01;
+			config.silent_mode = 	flags & 0x02;
+			config.enable_errors = 	flags & 0x04;
 
 			config.bitrate =		  (data[ 3] <<  0)
 									| (data[ 4] <<  8)
@@ -260,6 +297,7 @@ static uint32_t Protocol_DecodeData(const uint8_t * data, uint32_t size)
 									| (data[13] << 16)
 									| (data[14] << 24);
 
+			Protocol_ApplyConfig(&config);
 			gProtocolCallback.configure(&config);
 		}
 

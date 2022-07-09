@@ -15,8 +15,10 @@
 typedef struct {
 	uint32_t filter_mask;
 	uint32_t filter_id;
-	bool terminator;
 	uint32_t bitrate;
+	bool terminator;
+	bool silent_mode;
+	bool enable_errors;
 } Protocol_Config_t;
 
 typedef struct {
@@ -34,6 +36,14 @@ typedef struct {
 
 } Protocol_Callback_t;
 
+typedef enum {
+	Protocol_Error_Unknown = 0,
+	Protocol_Error_Overcurrent = 1,
+	Protocol_Error_Overvoltage = 2,
+	Protocol_Error_TxFailure = 3,
+	Protocol_Error_BufferFull = 4,
+} Protocol_Error_t;
+
 
 /*
  * PUBLIC FUNCTIONS
@@ -42,6 +52,7 @@ typedef struct {
 void Protocol_Init(const Protocol_Callback_t * callback);
 void Protocol_Run(void);
 void Protocol_RecieveCan(const CAN_Msg_t * msg);
+void Protocol_RecieveError(Protocol_Error_t error);
 
 /*
  * EXTERN DECLARATIONS

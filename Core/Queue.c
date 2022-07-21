@@ -39,7 +39,8 @@ bool Queue_Push(Queue_t * queue, const void * item)
 
 		memcpy(queue->items + (index * queue->item_size), item, queue->item_size);
 
-		queue->index = index + 1 < queue->capacity ? index + 1 : 0;
+		index += 1;
+		queue->index = index < queue->capacity ? index : 0;
 		queue->count += 1;
 		return true;
 	}

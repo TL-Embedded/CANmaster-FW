@@ -7,12 +7,12 @@ import threading
 TEST_ID = 0x00020130
 TEST_EXT = True
 
-def test_message(counter: int) -> can.Message:
+def test_message(counter: int, id = 0x00112233) -> can.Message:
     data = [
-        0x11,
-        0x22,
-        0x33,
-        0x44,
+        (id >> 24) & 0xFF,
+        (id >> 16) & 0xFF,
+        (id >> 8) & 0xFF,
+        id & 0xFF,
         (counter >> 24) & 0xFF,
         (counter >> 16) & 0xFF,
         (counter >> 8) & 0xFF,

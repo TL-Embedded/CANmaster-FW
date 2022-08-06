@@ -13,8 +13,7 @@
  */
 
 typedef struct {
-	GPIO_t * gpio;
-	uint32_t pin;
+	GPIO_Pin_t pin;
 	uint32_t timeout;
 	bool is_on;
 } Blinker_t;
@@ -23,7 +22,7 @@ typedef struct {
  * PUBLIC FUNCTIONS
  */
 
-void Blinker_Init(Blinker_t * b, GPIO_t * gpio, uint32_t pin);
+void Blinker_Init(Blinker_t * b, GPIO_Pin_t pin);
 void Blinker_Update(Blinker_t * b);
 void Blinker_Blink(Blinker_t * b, uint32_t timeout);
 

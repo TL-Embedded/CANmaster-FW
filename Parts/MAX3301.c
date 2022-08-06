@@ -33,23 +33,23 @@ static MAX3301_Fault_t MAX3301_DecodeFaultCode(uint32_t code);
 
 void MAX3301_Init(void)
 {
-	GPIO_EnableInput(MAX3301_FAULT_GPIO, MAX3301_FAULT_PIN, GPIO_Pull_Up);
+	GPIO_EnableInput(MAX3301_FAULT_PIN, GPIO_Pull_Up);
 }
 
 void MAX3301_Deinit(void)
 {
-	GPIO_Deinit(MAX3301_FAULT_GPIO, MAX3301_FAULT_PIN);
+	GPIO_Deinit(MAX3301_FAULT_PIN);
 }
 
 bool MAX3301_IsFaultSet(void)
 {
-	return GPIO_Read(MAX3301_FAULT_GPIO, MAX3301_FAULT_PIN);
+	return GPIO_Read(MAX3301_FAULT_PIN);
 }
 
 MAX3301_Fault_t MAX3301_ClearFault(void)
 {
-	GPIO_EnableOutput(MAX3301_CAN_GPIO, MAX3301_CANTX_PIN, GPIO_PIN_RESET);
-	GPIO_EnableInput(MAX3301_CAN_GPIO, MAX3301_CANRX_PIN, GPIO_Pull_None);
+	GPIO_EnableOutput(MAX3301_CANTX_PIN, GPIO_PIN_RESET);
+	GPIO_EnableInput(MAX3301_CANRX_PIN, GPIO_Pull_None);
 
 	// Sequence is:
 	//    10 bit start sequence
@@ -64,7 +64,7 @@ MAX3301_Fault_t MAX3301_ClearFault(void)
 	// Discard the remaining bits.
 	MAX3301_ReadBits(10);
 
-	GPIO_Deinit(MAX3301_CAN_GPIO, MAX3301_CANTX_PIN | MAX3301_CANRX_PIN);
+	GPIO_Deinit(MAX3301_CANTX_PIN | MAX3301_CANRX_PIN);
 
 	return MAX3301_DecodeFaultCode(code);
 }
@@ -79,10 +79,10 @@ static bool MAX3301_ReadSync(uint32_t count)
 	while (count--)
 	{
 		US_Delay(1);
-		GPIO_Set(MAX3301_CAN_GPIO, MAX3301_CANTX_PIN);
+		GPIO_Set(MAX3301_CANTX_PIN);
 		US_Delay(1);
-		bool bit = GPIO_Read(MAX3301_CAN_GPIO, MAX3301_CANRX_PIN);
-		GPIO_Reset(MAX3301_CAN_GPIO, MAX3301_CANTX_PIN);
+		bool bit = GPIO_Read(MAX3301_CANRX_PIN);
+		GPIO_Reset(MAX3301_CANTX_PIN);
 
 		if (bit) { return true; }
 	}
@@ -96,11 +96,11 @@ static uint32_t MAX3301_ReadBits(uint32_t count)
 	while (count--)
 	{
 		US_Delay(1);
-		GPIO_Set(MAX3301_CAN_GPIO, MAX3301_CANTX_PIN);
+		GPIO_Set(MAX3301_CANTX_PIN);
 		US_Delay(1);
 		value <<= 1;
-		value |= GPIO_Read(MAX3301_CAN_GPIO, MAX3301_CANRX_PIN) ? 1 : 0;
-		GPIO_Reset(MAX3301_CAN_GPIO, MAX3301_CANTX_PIN);
+		value |= GPIO_Read(MAX3301_CANRX_PIN) ? 1 : 0;
+		GPIO_Reset(MAX3301_CANTX_PIN);
 	}
 	return value;
 }

@@ -22,12 +22,11 @@
  * PUBLIC FUNCTIONS
  */
 
-void Blinker_Init(Blinker_t * b, GPIO_t * gpio, uint32_t pin)
+void Blinker_Init(Blinker_t * b, GPIO_Pin_t pin)
 {
-	b->gpio = gpio;
 	b->pin = pin;
 	b->is_on = false;
-	GPIO_EnableOutput(b->gpio, b->pin, false);
+	GPIO_EnableOutput(b->pin, false);
 }
 
 void Blinker_Update(Blinker_t * b)
@@ -38,7 +37,7 @@ void Blinker_Update(Blinker_t * b)
 		if (remaining <= 0)
 		{
 			b->is_on = false;
-			GPIO_Reset(b->gpio, b->pin);
+			GPIO_Reset(b->pin);
 		}
 	}
 }
@@ -46,7 +45,7 @@ void Blinker_Update(Blinker_t * b)
 void Blinker_Blink(Blinker_t * b, uint32_t timeout)
 {
 	b->is_on = !b->is_on;
-	GPIO_Write(b->gpio, b->pin, b->is_on);
+	GPIO_Write(b->pin, b->is_on);
 	b->timeout = CORE_GetTick() + timeout;
 }
 

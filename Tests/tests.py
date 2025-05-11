@@ -188,7 +188,7 @@ def list_canmasters() -> list[str]:
     ports = []
     for port in comports():
         if port.vid == 0x0483 and port.pid == 0x5740:
-            ports.append(port.name)
+            ports.append(port.device)
     return ports
 
 def check_stats(config: dict, stats: dict) -> bool:

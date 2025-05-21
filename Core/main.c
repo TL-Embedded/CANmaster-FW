@@ -65,15 +65,15 @@ int main(void)
 {
 	CORE_Init();
 
-	Blinker_Init(&gTxBlinker, LED_TX_GPIO, LED_TX_PIN);
-	Blinker_Init(&gRxBlinker, LED_RX_GPIO, LED_RX_PIN);
+	Blinker_Init(&gTxBlinker, LED_TX_PIN);
+	Blinker_Init(&gRxBlinker, LED_RX_PIN);
 
-	GPIO_EnableOutput(CAN_TERM_GPIO, CAN_TERM_PIN, false);
-	GPIO_EnableOutput(CAN_MODE_GPIO, CAN_MODE_PIN, false);
+	GPIO_EnableOutput(CAN_TERM_PIN, false);
+	GPIO_EnableOutput(CAN_MODE_PIN, false);
 
 	// Version detection.
-	GPIO_EnableInput(VERSION_GPIO, VERSION_PIN, GPIO_Pull_Up);
-	bool has_max3301 = !GPIO_Read(VERSION_GPIO, VERSION_PIN);
+	GPIO_EnableInput(VERSION_PIN, GPIO_Pull_Up);
+	bool has_max3301 = !GPIO_Read(VERSION_PIN);
 
 	// Init parts & modules.
 	if (has_max3301)
@@ -151,7 +151,7 @@ static void MAIN_InitCAN(const Protocol_Config_t * config)
 	if (config->silent_mode) { mode |= CAN_Mode_Silent; }
 	CAN_Init(config->bitrate, mode);
 	CAN_EnableFilter(0, config->filter_id, config->filter_mask);
-	GPIO_Write(CAN_TERM_GPIO, CAN_TERM_PIN, config->terminator);
+	GPIO_Write(CAN_TERM_PIN, config->terminator);
 }
 
 static void MAIN_StatusCallback(Protocol_Status_t * status)

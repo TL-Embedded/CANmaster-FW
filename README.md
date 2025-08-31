@@ -65,6 +65,14 @@ The enumerated codes are enumated below:
 | 0x02         | Bus overvoltage           | Yes             |
 | 0x03         | Bus transmit failure      | Yes             |
 | 0x04         | Transmit buffer full      | No              |
+| 0x05         | Bit Stuffing error        | No              |
+| 0x06         | Message Form error        | No              |
+| 0x07         | Acknowledgement error     | No              |
+| 0x08         | Recessive bit error       | No              |
+| 0x09         | Dominant bit error        | No              |
+| 0x0A         | CRC error                 | No              |
+| 0x0B         | Software triggered error  | No              |
+| 0x0C         | Receive overrun           | No              |
 
 # Message definitions
 

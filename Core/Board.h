@@ -14,6 +14,7 @@
 // CAN config
 #define CAN_PINS			(PB8 | PB9)
 #define CAN_AF				GPIO_AF4_CAN
+#define CAN_USE_IRQS
 
 // USB config
 #define USB_ENABLE

@@ -1,4 +1,3 @@
-from psutil import boot_time
 import canmaster
 import can
 import time

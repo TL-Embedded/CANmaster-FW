@@ -37,11 +37,22 @@ typedef struct {
 } Protocol_Callback_t;
 
 typedef enum {
-	Protocol_Error_Unknown = 0,
-	Protocol_Error_Overcurrent = 1,
-	Protocol_Error_Overvoltage = 2,
-	Protocol_Error_TxFailure = 3,
-	Protocol_Error_BufferFull = 4,
+	Protocol_Error_Unknown 		= 0,
+	Protocol_Error_Overcurrent 	= 1,
+	Protocol_Error_Overvoltage 	= 2,
+	Protocol_Error_TxFailure 	= 3,
+	Protocol_Error_BufferFull 	= 4,
+
+	// Note, this aligns with CAN_Error_t (+5)
+	Protocol_Error_Stuff 			= 5,
+	Protocol_Error_Form 			= 6,
+	Protocol_Error_Acknowledgement 	= 7,
+	Protocol_Error_RecessiveBit		= 8,
+	Protocol_Error_DominantBit		= 9,
+	Protocol_Error_CRC				= 10,
+	Protocol_Error_Software			= 11,
+	Protocol_Error_RxOverrun		= 12,
+
 } Protocol_Error_t;
 
 

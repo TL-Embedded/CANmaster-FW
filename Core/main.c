@@ -38,6 +38,7 @@ static CAN_Msg_t gCanTxBuffer[64];
 static Protocol_Status_t gStatus = {0};
 static Blinker_t gTxBlinker;
 static Blinker_t gRxBlinker;
+static CAN_Error_t gCanError = CAN_Error_None;
 
 static const Protocol_Callback_t cProtocolCallbacks = {
 	.tx_data = USB_CDC_Write,
@@ -102,6 +103,12 @@ int main(void)
 			MAIN_InitCAN(&gDefaultConfig);
 		}
 
+		if (gCanError != CAN_Error_None)
+		{
+			Protocol_RecieveError(gCanError + Protocol_Error_Stuff - 1);
+			gCanError = CAN_Error_None;
+		}
+
 		// Read incoming can messages
 		CAN_Msg_t rx;
 		while (CAN_Read(&rx))
@@ -144,6 +151,11 @@ static void MAIN_ConfigCallback(const Protocol_Config_t * config)
 	MAIN_InitCAN(config);
 }
 
+static void MAIN_CanErrorCallback(CAN_Error_t error)
+{
+	gCanError = error;
+}
+
 static void MAIN_InitCAN(const Protocol_Config_t * config)
 {
 	// Running the mailbox in FIFO guarantees message TX order.
@@ -152,6 +164,7 @@ static void MAIN_InitCAN(const Protocol_Config_t * config)
 	CAN_Init(config->bitrate, mode);
 	CAN_EnableFilter(0, config->filter_id, config->filter_mask);
 	GPIO_Write(CAN_TERM_PIN, config->terminator);
+	CAN_OnError(MAIN_CanErrorCallback);
 }
 
 static void MAIN_StatusCallback(Protocol_Status_t * status)

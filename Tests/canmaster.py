@@ -7,11 +7,20 @@ CAN_EXT_BIT = 1 << 5
 
 
 class CANMasterError(Enum):
-    UNKNOWN = 0x00
-    BUS_OVERCURRENT = 0x01
-    BUS_OVERVOLTAGE = 0x02
-    BUS_TRANSMIT_FAILURE = 0x03
-    TRANSMIT_BUFFER_FULL = 0x04
+    UNKNOWN                 = 0x00
+    BUS_OVERCURRENT         = 0x01
+    BUS_OVERVOLTAGE         = 0x02
+    BUS_TRANSMIT_FAILURE    = 0x03
+    TRANSMIT_BUFFER_FULL    = 0x04
+    CAN_STUFFING_ERROR      = 0x05
+    CAN_FORM_ERROR          = 0x06
+    CAN_ACKNOWLEDGEMENT_ERROR = 0x07
+    CAN_RECESSIVE_BIT_ERROR = 0x08
+    CAN_DOMINANT_BIT_ERROR  = 0x09
+    CAN_CRC_ERROR           = 0x0A
+    SOFTWARE_ERROR          = 0x0B
+    RECEIVE_OVERRUN         = 0x0C
+
 
 
 def _u32_to_bytes(word: int) -> bytearray:
